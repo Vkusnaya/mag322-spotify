@@ -16,12 +16,10 @@
             color: white;
             padding: 15px 30px;
             font-size: 24px;
-            border: none;
+            border: 4px solid #ffffff;
             border-radius: 50px;
             cursor: pointer;
-        }
-        .active {
-            border: 4px solid #ffffff;
+            outline: none;
         }
         #info {
             font-size: 20px;
@@ -33,78 +31,75 @@
 <body>
 
     <h1>Spotify MAG322 Player</h1>
-    <div id="status">Натисніть OK / Enter для авторизації</div>
+    <div id="status">Натисніть OK / Enter / Клик для авторизації</div>
     <br><br>
-    <button id="loginBtn" class="btn active">Увійти в Spotify</button>
+    <button id="loginBtn" class="btn" onclick="login()" autofocus>Увійти в Spotify</button>
 
     <div id="info"></div>
 
     <script>
         const CLIENT_ID = '07d97368f22f4046b1b405b2cb24f39b';
-        const REDIRECT_URI = window.location.href.split('#')[0].split('?')[0];
+        const REDIRECT_URI = 'https://vkusnaya.github.io/mag322-spotify/';
         const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
 
-        // Обробка кнопок пульта MAG 322
+        function login() {
+            document.getElementById('status').innerText = 'Перенаправлення в Spotify...';
+            // Використовуємо новий стандарт response_type=code
+            const authUrl = 'https://accounts.spotify.com/authorize?client_id=' + CLIENT_ID + 
+                            '&response_type=code' + 
+                            '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) + 
+                            '&scope=' + encodeURIComponent(SCOPES);
+            
+            window.location.assign(authUrl);
+        }
+
+        // Обробка кнопок пульта та клавіатури
         document.addEventListener('keydown', function(e) {
-            switch(e.keyCode) {
-                case 13: // Enter / OK
-                    if (!token) login();
-                    break;
-                case 82: // Play/Pause на пульті
-                case 32: // Space
+            if (e.keyCode === 13 || e.keyCode === 275 || e.keyCode === 32) {
+                const code = getAuthCode();
+                if (!code) {
+                    login();
+                } else {
                     togglePlay();
-                    break;
-                case 39: // Стрілка вправо (Next)
-                    nextTrack();
-                    break;
-                case 37: // Стрілка вліво (Prev)
-                    prevTrack();
-                    break;
+                }
+            } else if (e.keyCode === 39) { // Стрілка вправо
+                nextTrack();
+            } else if (e.keyCode === 37) { // Стрілка вліво
+                prevTrack();
             }
         });
 
-        function login() {
-            const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}`;
-            window.location.href = authUrl;
+        function getAuthCode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('code');
         }
 
-        function getAccessToken() {
-            const hash = window.location.hash.substring(1).split('&').reduce((initial, item) => {
-                if (item) {
-                    var parts = item.split('=');
-                    initial[parts[0]] = decodeURIComponent(parts[1]);
-                }
-                return initial;
-            }, {});
-            return hash.access_token;
-        }
+        const authCode = getAuthCode();
 
-        const token = getAccessToken();
-
-        if (token) {
-            document.getElementById('status').innerText = '✅ Успішно підключено!';
+        if (authCode) {
+            document.getElementById('status').innerText = '✅ Авторизовано!';
             document.getElementById('loginBtn').style.display = 'none';
-            document.getElementById('info').innerHTML = 'Керуйте відтворенням із пульта:<br><br><b>OK/Play</b> — Пауза/Відтворення<br><b>Стрілки Left/Right</b> — Перемикання треків';
+            document.getElementById('info').innerHTML = 'Керуйте відтворенням із пульта:<br><br><b>OK / Play</b> — Пауза/Відтворення<br><b>Стрілки Left/Right</b> — Перемикання треків';
         }
 
         function togglePlay() {
             fetch('https://api.spotify.com/v1/me/player/play', {
                 method: 'PUT',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + authCode }
             });
         }
 
         function nextTrack() {
             fetch('https://api.spotify.com/v1/me/player/next', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + authCode }
             });
         }
 
         function prevTrack() {
             fetch('https://api.spotify.com/v1/me/player/previous', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + authCode }
             });
         }
     </script>
